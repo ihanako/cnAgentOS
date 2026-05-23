@@ -8,11 +8,13 @@ import tornado.web
 from tornado.httpserver import HTTPServer
 
 # from app.controllers.base import BaseHandler
-# 引入auth - controller 层
 from app.controllers.auth import LoginHandler,LogoutHandler
 from app.controllers.home import IndexHandler
-# 引入db - model 层
+from app.controllers.admin_auth import AdminLoginHandler,AdminLogoutHandler
+from app.controllers.admin_home import AdminIndexHandler,AdminWelcomeHandler
+from app.controllers.admin_user import AdminUserListHandler,AdminUserDataHandler,AdminUserAddHandler,AdminUserEditHandler,AdminUserDeleteHandler,AdminUserBatchDeleteHandler
 from app.models.db import init_db
+from app.models.user import UserRepository
 
 # class HealthHandler(tornado.web.RequestHandler):
 #     def get(self):
@@ -74,7 +76,17 @@ def make_app():
     return tornado.web.Application([
             (r"/",IndexHandler),
             (r"/auth/login",LoginHandler),
-            (r"/auth/logout",LogoutHandler)
+            (r"/auth/logout",LogoutHandler),
+            (r"/admin/login",AdminLoginHandler),
+            (r"/admin/logout",AdminLogoutHandler),
+            (r"/admin",AdminIndexHandler),
+            (r"/admin/welcome",AdminWelcomeHandler),
+            (r"/admin/user/list",AdminUserListHandler),
+            (r"/admin/api/user/list",AdminUserDataHandler),
+            (r"/admin/api/user/add",AdminUserAddHandler),
+            (r"/admin/api/user/edit",AdminUserEditHandler),
+            (r"/admin/api/user/delete",AdminUserDeleteHandler),
+            (r"/admin/api/user/batch_delete",AdminUserBatchDeleteHandler)
         ],
         **settings
     )

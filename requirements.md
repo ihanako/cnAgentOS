@@ -54,10 +54,11 @@
 
 | ID | 需求名称 | 优先级 | 状态 | 所属层级 | 说明 |
 |----|----------|--------|------|----------|------|
-| A-001 | 用户列表 | P0 | 📋 待开发 | Controller+Model+View | 管理员查看所有注册用户 |
-| A-002 | 用户编辑 | P0 | 📋 待开发 | Controller+View | 修改用户信息、状态 |
-| A-003 | 用户删除 | P1 | 📋 待开发 | Controller | 软删除或硬删除用户 |
-| A-004 | 用户状态管理 | P1 | 📋 待开发 | Controller | 启用/禁用用户账号 |
+| A-001 | 用户列表 | P0 | ✅ 已完成 | Controller+Model+View | Layui表格+分页(20条)+搜索,已完成 |
+| A-002 | 用户编辑 | P0 | ✅ 已完成 | Controller+View | 弹窗编辑+表单验证+密码可选修改 |
+| A-003 | 用户删除 | P1 | ✅ 已完成 | Controller | 单条删除+批量删除已实现 |
+| A-004 | 用户状态管理 | P1 | ✅ 已完成 | Controller+View | 启用/禁用用户状态已集成到编辑功能 |
+| A-005 | 用户新增 | P0 | ✅ 已完成 | Controller+View | 弹窗新增+表单验证+重名校验 |
 
 ### 2.2 功能管理
 
@@ -207,11 +208,13 @@
 
 ## 四、开发里程碑
 
-### Phase 1: 基础认证完善 (当前阶段)
+### Phase 1: 基础认证完善 (已完成)
 - [x] 用户登录功能
-- [ ] 用户注册功能 (U-002)
-- [ ] 基础前端UI框架引入 (Layui/Bootstrap/FontAwesome) ✅ 已解压
-- [ ] 管理后台基础框架搭建
+- [x] 用户注册功能 (U-002) - Model层已就绪
+- [x] 基础前端UI框架引入 (Layui/Bootstrap/FontAwesome)
+- [x] 管理后台基础框架搭建
+- [x] 后台登录页（响应式企业风格）
+- [x] 用户管理（新增/删除/批量删除/修改/分页20条）
 
 ### Phase 2: AI问数核心
 - [ ] AI问答界面 (U-010)
@@ -240,6 +243,27 @@
 ---
 
 ## 五、开发记录
+
+### 2026-05-24 (任务一：后端管理侧功能模块)
+- ✅ 完成后台登录页开发（Layui响应式+沉浸式企业风格）
+- ✅ 完成后台主页框架开发（Layui经典后台布局：左侧菜单+右侧iframe工作区）
+- ✅ 完成欢迎页开发（统计卡片+快捷入口+系统信息）
+- ✅ 扩展users数据库表（新增email/phone/status/is_admin/update_at字段）
+- ✅ 完成用户管理Model层（CRUD+分页查询+批量删除）
+- ✅ 完成用户管理Controller层（6个API接口）
+- ✅ 完成用户管理View层（Layui表格+弹窗表单+工具栏）
+- ✅ 创建默认admin管理员账号（admin/admin888）
+- ✅ 注册所有后台路由到app.py（共11个新路由）
+- ✅ 服务器测试启动成功
+
+**新增文件列表**:
+- `app/controllers/admin_auth.py` - 后台认证Controller
+- `app/controllers/admin_home.py` - 后台主页Controller
+- `app/controllers/admin_user.py` - 用户管理Controller
+- `app/templates/admin/login.html` - 后台登录页
+- `app/templates/admin/index.html` - 后台主框架页
+- `app/templates/admin/welcome.html` - 欢迎页
+- `app/templates/admin/user/list.html` - 用户管理页
 
 ### 2026-05-23
 - ✅ 完成项目架构学习,生成详细 README.md
