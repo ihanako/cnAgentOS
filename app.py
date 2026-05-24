@@ -16,6 +16,7 @@ from app.controllers.admin_user import AdminUserListHandler,AdminUserDataHandler
 from app.controllers.admin_role import AdminRoleListHandler,AdminRoleDataHandler,AdminRoleAddHandler,AdminRoleEditHandler,AdminRoleDeleteHandler,AdminRoleAllHandler
 from app.controllers.admin_menu import AdminMenuListHandler,AdminMenuDataHandler,AdminMenuTopHandler,AdminMenuAddHandler,AdminMenuEditHandler,AdminMenuDeleteHandler
 from app.controllers.admin_permission import AdminPermissionListHandler,AdminPermissionDataHandler,AdminPermissionSaveHandler
+from app.controllers.admin_model import AdminModelListHandler,AdminModelDataHandler,AdminModelAddHandler,AdminModelEditHandler,AdminModelDeleteHandler,AdminModelTestHandler,AdminModelSetDefaultHandler
 from app.models.db import init_db
 from app.models.user import UserRepository
 
@@ -104,7 +105,14 @@ def make_app():
             (r"/admin/api/menu/delete",AdminMenuDeleteHandler),
             (r"/admin/permission/list",AdminPermissionListHandler),
             (r"/admin/api/permission/data",AdminPermissionDataHandler),
-            (r"/admin/api/permission/save",AdminPermissionSaveHandler)
+            (r"/admin/api/permission/save",AdminPermissionSaveHandler),
+            (r"/admin/model/list",AdminModelListHandler),
+            (r"/admin/api/model/list",AdminModelDataHandler),
+            (r"/admin/api/model/add",AdminModelAddHandler),
+            (r"/admin/api/model/edit",AdminModelEditHandler),
+            (r"/admin/api/model/delete",AdminModelDeleteHandler),
+            (r"/admin/api/model/test",AdminModelTestHandler),
+            (r"/admin/api/model/default",AdminModelSetDefaultHandler)
         ],
         **settings
     )

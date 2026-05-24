@@ -1,22 +1,19 @@
-# 数据库链接与建表
-import os
 import sqlite3
+import os
+import hashlib
+import secrets
 
-# 获得项目根路径的方法
 def _project_root():
-    return os.path.abspath(os.path.join(os.path.dirname(__file__),os.pardir,os.pardir))
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-DB_PATH = os.path.join(_project_root(),"database","app.db")
-
-# 获得数据库连接
 def get_connection():
-    os.makedirs(os.path.dirname(DB_PATH),exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    db_dir = os.path.join(_project_root(), "database")
+    os.makedirs(db_dir, exist_ok=True)
+    db_path = os.path.join(db_dir, "app.db")
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
-
-# 初始化数据库表
 def init_db():
     with get_connection() as conn:
         conn.execute(
@@ -64,22 +61,6 @@ def init_db():
                 UPDATE users SET update_at = datetime('now') WHERE id = NEW.id;
             END
         ''')
-        
-        import hashlib
-        import secrets
-        existing_admin = conn.execute("SELECT id FROM users WHERE username='admin' AND is_admin=1").fetchone()
-        if not existing_admin:
-            salt = secrets.token_bytes(16)
-            dk = hashlib.pbkdf2_hmac('sha256', 'admin888'.encode('utf-8'), salt, 100_000)
-            password_hash = dk.hex()
-            try:
-                conn.execute(
-                    "INSERT INTO users(username, password_hash, salt, is_admin, email) VALUES (?, ?, ?, ?, ?)",
-                    ('admin', password_hash, salt.hex(), 1, 'admin@cnagentos.com')
-                )
-                print("默认管理员账号已创建: admin/admin888")
-            except Exception:
-                pass
         
         conn.execute('''
             CREATE TABLE IF NOT EXISTS roles(
@@ -130,6 +111,56 @@ def init_db():
             )
         ''')
         
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS user_role(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                role_id INTEGER NOT NULL,
+                UNIQUE(user_id, role_id)
+            )
+        ''')
+        
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS ai_models(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                code TEXT NOT NULL UNIQUE,
+                base_url TEXT NOT NULL,
+                api_key TEXT NOT NULL,
+                model_name TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                status INTEGER NOT NULL DEFAULT 1,
+                is_default INTEGER NOT NULL DEFAULT 0,
+                sort INTEGER NOT NULL DEFAULT 0,
+                total_tokens INTEGER NOT NULL DEFAULT 0,
+                total_calls INTEGER NOT NULL DEFAULT 0,
+                create_at TEXT NOT NULL DEFAULT(datetime('now')),
+                update_at TEXT NOT NULL DEFAULT(datetime('now'))
+            )
+        ''')
+        
+        conn.execute('''
+            CREATE TRIGGER IF NOT EXISTS update_ai_models_timestamp
+            AFTER UPDATE ON ai_models
+            BEGIN
+                UPDATE ai_models SET update_at = datetime('now') WHERE id = NEW.id;
+            END
+        ''')
+        
+        existing_admin = conn.execute("SELECT id FROM users WHERE username='admin' AND is_admin=1").fetchone()
+        if not existing_admin:
+            salt = secrets.token_bytes(16)
+            dk = hashlib.pbkdf2_hmac('sha256', 'admin888'.encode('utf-8'), salt, 100_000)
+            password_hash = dk.hex()
+            try:
+                conn.execute(
+                    "INSERT INTO users(username, password_hash, salt, is_admin, email) VALUES (?, ?, ?, ?, ?)",
+                    ('admin', password_hash, salt.hex(), 1, 'admin@cnagentos.com')
+                )
+                print("默认管理员账号已创建: admin/admin888")
+            except Exception:
+                pass
+        
         super_role = conn.execute("SELECT id FROM roles WHERE code='super_admin'").fetchone()
         if not super_role:
             try:
@@ -162,14 +193,16 @@ def init_db():
             except Exception:
                 pass
         
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS user_role(
-                id integer PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                role_id INTEGER NOT NULL,
-                UNIQUE(user_id, role_id)
-            )
-        ''')
+        default_model = conn.execute("SELECT id FROM ai_models WHERE code='default_deepseek'").fetchone()
+        if not default_model:
+            try:
+                conn.execute(
+                    "INSERT INTO ai_models(name, code, base_url, api_key, model_name, description, is_default, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    ('DeepSeek-V3', 'default_deepseek', 'https://aigc-api.aitoolcore.com/api/v1', 'sk-aigc-11db9b6d2bfcc7223c2e546e7388981f11169a4a', 'deepseek-v3', 'DeepSeek V3 默认模型', 1, 1)
+                )
+                print("默认AI模型已创建: DeepSeek-V3")
+            except Exception:
+                pass
         
         admin_user = conn.execute("SELECT id FROM users WHERE username='admin' AND is_admin=1").fetchone()
         super_role = conn.execute("SELECT id FROM roles WHERE code='super_admin'").fetchone()
