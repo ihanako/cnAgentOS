@@ -161,3 +161,20 @@ def init_db():
                 print("默认菜单数据已创建")
             except Exception:
                 pass
+        
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS user_role(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                role_id INTEGER NOT NULL,
+                UNIQUE(user_id, role_id)
+            )
+        ''')
+        
+        admin_user = conn.execute("SELECT id FROM users WHERE username='admin' AND is_admin=1").fetchone()
+        super_role = conn.execute("SELECT id FROM roles WHERE code='super_admin'").fetchone()
+        if admin_user and super_role:
+            existing = conn.execute("SELECT id FROM user_role WHERE user_id=? AND role_id=?", (admin_user["id"], super_role["id"])).fetchone()
+            if not existing:
+                conn.execute("INSERT INTO user_role(user_id, role_id) VALUES (?, ?)", (admin_user["id"], super_role["id"]))
+                print("admin用户已绑定超级管理员角色")

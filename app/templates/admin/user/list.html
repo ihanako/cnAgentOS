@@ -14,6 +14,7 @@
         .status-normal { background: #e8f5e9; color: #4caf50; }
         .status-disabled { background: #ffebee; color: #f44336; }
         .admin-badge { background: #e3f2fd; color: #2196f3; padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+        .role-tag { display: inline-block; padding: 2px 8px; background: #f0f2f5; border-radius: 4px; font-size: 12px; margin: 2px 4px 2px 0; color: #666; }
     </style>
 </head>
 <body>
@@ -24,12 +25,8 @@
                     <input type="text" name="keyword" placeholder="搜索用户名/邮箱/手机号" class="layui-input" style="width: 260px;">
                 </div>
                 <div class="layui-inline">
-                    <button class="layui-btn layui-btn-normal" lay-submit lay-filter="searchBtn">
-                        <i class="fas fa-search"></i> 搜索
-                    </button>
-                    <button type="reset" class="layui-btn layui-btn-primary">
-                        <i class="fas fa-redo"></i> 重置
-                    </button>
+                    <button class="layui-btn layui-btn-normal" lay-submit lay-filter="searchBtn"><i class="fas fa-search"></i> 搜索</button>
+                    <button type="reset" class="layui-btn layui-btn-primary"><i class="fas fa-redo"></i> 重置</button>
                 </div>
             </div>
         </form>
@@ -43,22 +40,14 @@
 
     <script type="text/html" id="toolbarDemo">
         <div class="layui-btn-container">
-            <button class="layui-btn layui-btn-sm" lay-event="add">
-                <i class="fas fa-plus"></i> 新增用户
-            </button>
-            <button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="batchDelete">
-                <i class="fas fa-trash-alt"></i> 批量删除
-            </button>
+            <button class="layui-btn layui-btn-sm" lay-event="add"><i class="fas fa-plus"></i> 新增用户</button>
+            <button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="batchDelete"><i class="fas fa-trash-alt"></i> 批量删除</button>
         </div>
     </script>
 
     <script type="text/html" id="actionTpl">
-        <a class="layui-btn layui-btn-xs" lay-event="edit">
-            <i class="fas fa-edit"></i> 编辑
-        </a>
-        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">
-            <i class="fas fa-trash-alt"></i> 删除
-        </a>
+        <a class="layui-btn layui-btn-xs" lay-event="edit"><i class="fas fa-edit"></i> 编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete"><i class="fas fa-trash-alt"></i> 删除</a>
     </script>
 
     <script src="{{ static_url('layui-v2.13.6/layui/layui.js') }}"></script>
@@ -68,11 +57,14 @@
             var form = layui.form;
             var layer = layui.layer;
             var $ = layui.jquery;
-            
             var xsrfToken = $('input[name="_xsrf"]').val();
-            function getXsrfData() {
-                return { '_xsrf': xsrfToken };
-            }
+            var allRoles = [];
+            
+            function getXsrfData() { return { '_xsrf': xsrfToken }; }
+
+            $.get('/admin/api/role/all', function(res) {
+                if (res.code === 0) allRoles = res.data;
+            }, 'json');
 
             table.render({
                 elem: '#userTable',
@@ -83,154 +75,124 @@
                     {type: 'checkbox', fixed: 'left'},
                     {field: 'id', title: 'ID', width: 80, sort: true, fixed: 'left'},
                     {field: 'username', title: '用户名', width: 150, sort: true},
-                    {field: 'email', title: '邮箱', width: 200},
-                    {field: 'phone', title: '手机号', width: 150},
+                    {field: 'roles', title: '角色', width: 200, templet: function(d) {
+                        if (d.roles) {
+                            return d.roles.split(',').map(function(r) { return '<span class="role-tag">' + r + '</span>'; }).join('');
+                        }
+                        return '<span style="color:#999;">未分配</span>';
+                    }},
+                    {field: 'email', title: '邮箱', width: 180},
+                    {field: 'phone', title: '手机号', width: 140},
                     {field: 'status', title: '状态', width: 100, templet: function(d) {
                         return d.status === 1 ? '<span class="status-badge status-normal">正常</span>' : '<span class="status-badge status-disabled">禁用</span>';
                     }, align: 'center'},
-                    {field: 'is_admin', title: '角色', width: 120, templet: function(d) {
+                    {field: 'is_admin', title: '系统角色', width: 120, templet: function(d) {
                         return d.is_admin === 1 ? '<span class="admin-badge">管理员</span>' : '<span style="color: #999;">普通用户</span>';
                     }, align: 'center'},
                     {field: 'create_at', title: '创建时间', width: 180, sort: true},
-                    {field: 'update_at', title: '更新时间', width: 180, sort: true},
                     {title: '操作', width: 180, toolbar: '#actionTpl', fixed: 'right', align: 'center'}
                 ]],
-                page: {
-                    limit: 20,
-                    limits: [10, 20, 50, 100],
-                    layout: ['count', 'prev', 'page', 'next', 'limit', 'skip']
-                },
-                parseData: function(res) {
-                    return {
-                        "code": res.code,
-                        "msg": res.msg,
-                        "count": res.count,
-                        "data": res.data
-                    };
-                },
-                request: {
-                    pageName: 'page',
-                    limitName: 'limit'
-                },
+                page: { limit: 20, limits: [10, 20, 50, 100], layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'] },
+                parseData: function(res) { return { "code": res.code, "msg": res.msg, "count": res.count, "data": res.data }; },
+                request: { pageName: 'page', limitName: 'limit' },
                 height: 'full-200'
             });
 
             form.on('submit(searchBtn)', function(data) {
-                table.reload('userTable', {
-                    where: data.field,
-                    page: {curr: 1}
-                });
+                table.reload('userTable', { where: data.field, page: {curr: 1} });
                 return false;
             });
 
             table.on('toolbar(userTable)', function(obj) {
-                switch(obj.event) {
-                    case 'add':
-                        showUserForm(null);
-                        break;
-                    case 'batchDelete':
-                        var checkStatus = table.checkStatus('userTable');
-                        var data = checkStatus.data;
-                        if (data.length === 0) {
-                            layer.msg('请选择要删除的用户');
-                            return;
-                        }
-                        layer.confirm('确定要删除选中的 ' + data.length + ' 个用户吗？', {icon: 3, title: '提示'}, function(index) {
-                            var ids = data.map(function(item) { return item.id; }).join(',');
-                            $.post('/admin/api/user/batch_delete', $.extend({ids: ids}, getXsrfData()), function(res) {
-                                if (res.code === 0) {
-                                    layer.msg(res.msg, {icon: 1});
-                                    table.reload('userTable');
-                                } else {
-                                    layer.msg(res.msg, {icon: 2});
-                                }
-                            }, 'json');
-                            layer.close(index);
-                        });
-                        break;
+                if (obj.event === 'add') showUserForm(null);
+                else if (obj.event === 'batchDelete') {
+                    var checkStatus = table.checkStatus('userTable');
+                    var data = checkStatus.data;
+                    if (data.length === 0) { layer.msg('请选择要删除的用户'); return; }
+                    layer.confirm('确定要删除选中的 ' + data.length + ' 个用户吗？', {icon: 3, title: '提示'}, function(index) {
+                        var ids = data.map(function(item) { return item.id; }).join(',');
+                        $.post('/admin/api/user/batch_delete', $.extend({ids: ids}, getXsrfData()), function(res) {
+                            layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+                            if (res.code === 0) table.reload('userTable');
+                        }, 'json');
+                        layer.close(index);
+                    });
                 }
             });
 
             table.on('tool(userTable)', function(obj) {
                 var data = obj.data;
-                switch(obj.event) {
-                    case 'edit':
-                        showUserForm(data);
-                        break;
-                    case 'delete':
-                        layer.confirm('确定要删除用户 "' + data.username + '" 吗？', {icon: 3, title: '提示'}, function(index) {
-                            $.post('/admin/api/user/delete', $.extend({id: data.id}, getXsrfData()), function(res) {
-                                if (res.code === 0) {
-                                    layer.msg(res.msg, {icon: 1});
-                                    table.reload('userTable');
-                                } else {
-                                    layer.msg(res.msg, {icon: 2});
-                                }
-                            }, 'json');
-                            layer.close(index);
-                        });
-                        break;
+                if (obj.event === 'edit') showUserForm(data);
+                else if (obj.event === 'delete') {
+                    if (data.is_default_admin) { layer.msg('默认管理员不能删除', {icon: 2}); return; }
+                    layer.confirm('确定要删除用户 "' + data.username + '" 吗？', {icon: 3, title: '提示'}, function(index) {
+                        $.post('/admin/api/user/delete', $.extend({id: data.id}, getXsrfData()), function(res) {
+                            layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+                            if (res.code === 0) table.reload('userTable');
+                        }, 'json');
+                        layer.close(index);
+                    });
                 }
             });
 
             function showUserForm(data) {
                 var isEdit = data !== null;
+                var isDefaultAdmin = isEdit && data.is_default_admin;
+                
+                var roleOptionsHtml = allRoles.map(function(r) {
+                    return '<input type="checkbox" name="role_ids" value="' + r.id + '" title="' + r.name + '" lay-skin="primary">';
+                }).join('');
+
                 var html = '<form class="layui-form" id="userForm" lay-filter="userForm" style="padding: 20px;">' +
                     '<input type="hidden" name="id" value="">' +
-                    '<div class="layui-form-item">' +
-                    '<label class="layui-form-label">用户名</label>' +
-                    '<div class="layui-input-block">' +
-                    '<input type="text" name="username" required lay-verify="required" placeholder="请输入用户名" class="layui-input" autocomplete="off">' +
-                    '</div></div>' +
-                    '<div class="layui-form-item">' +
-                    '<label class="layui-form-label">密码</label>' +
-                    '<div class="layui-input-block">' +
+                    '<div class="layui-form-item"><label class="layui-form-label">用户名</label><div class="layui-input-block">' +
+                    '<input type="text" name="username" required lay-verify="required" placeholder="请输入用户名" class="layui-input" autocomplete="off"></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">密码</label><div class="layui-input-block">' +
                     '<input type="password" name="password" id="passwordInput" placeholder="请输入密码（不修改则留空）" class="layui-input" autocomplete="new-password">' +
-                    '<div class="layui-form-mid layui-word-aux">新增时必填，修改时留空表示不修改密码</div>' +
-                    '</div></div>' +
-                    '<div class="layui-form-item">' +
-                    '<label class="layui-form-label">邮箱</label>' +
-                    '<div class="layui-input-block">' +
-                    '<input type="email" name="email" placeholder="请输入邮箱" class="layui-input">' +
-                    '</div></div>' +
-                    '<div class="layui-form-item">' +
-                    '<label class="layui-form-label">手机号</label>' +
-                    '<div class="layui-input-block">' +
-                    '<input type="text" name="phone" placeholder="请输入手机号" class="layui-input">' +
-                    '</div></div>' +
-                    '<div class="layui-form-item">' +
-                    '<label class="layui-form-label">用户状态</label>' +
-                    '<div class="layui-input-block">' +
+                    '<div class="layui-form-mid layui-word-aux">新增时必填，修改时留空表示不修改密码</div></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">邮箱</label><div class="layui-input-block">' +
+                    '<input type="email" name="email" placeholder="请输入邮箱" class="layui-input"></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">手机号</label><div class="layui-input-block">' +
+                    '<input type="text" name="phone" placeholder="请输入手机号" class="layui-input"></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">用户状态</label><div class="layui-input-block">' +
                     '<input type="radio" name="status" value="1" title="正常" checked>' +
-                    '<input type="radio" name="status" value="0" title="禁用">' +
-                    '</div></div>' +
-                    '<div class="layui-form-item">' +
-                    '<label class="layui-form-label">管理员</label>' +
-                    '<div class="layui-input-block">' +
-                    '<input type="checkbox" name="is_admin" lay-skin="switch" lay-text="是|否" value="1">' +
-                    '</div></div>' +
-                    '<div class="layui-form-item">' +
-                    '<div class="layui-input-block">' +
+                    '<input type="radio" name="status" value="0" title="禁用"></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">管理员</label><div class="layui-input-block">' +
+                    '<input type="checkbox" name="is_admin" lay-skin="switch" lay-text="是|否" value="1"></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">角色分配</label><div class="layui-input-block">' +
+                    '<div id="roleCheckboxes" style="max-height: 150px; overflow-y: auto;">' + roleOptionsHtml + '</div></div></div>' +
+                    '<div class="layui-form-item"><div class="layui-input-block">' +
                     '<button class="layui-btn" lay-submit lay-filter="submitForm">确定</button>' +
-                    '<button type="reset" class="layui-btn layui-btn-primary">重置</button>' +
-                    '</div></div>' +
-                    '</form>';
+                    '<button type="reset" class="layui-btn layui-btn-primary">重置</button></div></div></form>';
                 
                 layer.open({
-                    type: 1,
-                    title: isEdit ? '编辑用户' : '新增用户',
-                    area: ['500px', '550px'],
-                    content: html,
+                    type: 1, title: isEdit ? (isDefaultAdmin ? '修改管理员密码' : '编辑用户') : '新增用户',
+                    area: ['550px', '600px'], content: html,
                     success: function(layero, index) {
                         form.render();
                         if (isEdit) {
                             $.get('/admin/api/user/edit', {id: data.id}, function(res) {
                                 if (res.code === 0) {
-                                    var formData = res.data;
-                                    formData.is_admin = formData.is_admin === 1 ? true : false;
-                                    form.val('userForm', formData);
-                                    $('#passwordInput').attr('placeholder', '留空表示不修改密码');
-                                    $('input[name="username"]').prop('readonly', true);
+                                    var fd = res.data;
+                                    if (isDefaultAdmin) {
+                                        $('input[name="username"]').prop('readonly', true).css('background-color', '#f5f5f5');
+                                        $('input[name="email"]').prop('readonly', true).css('background-color', '#f5f5f5');
+                                        $('input[name="phone"]').prop('readonly', true).css('background-color', '#f5f5f5');
+                                        $('input[name="status"]').prop('disabled', true);
+                                        $('input[name="is_admin"]').prop('disabled', true).next().addClass('layui-btn-disabled');
+                                        $('#passwordInput').attr('placeholder', '请输入新密码（留空不修改）');
+                                    }
+                                    form.val('userForm', fd);
+                                    
+                                    if (fd.role_ids) {
+                                        var rids = fd.role_ids.split(',').map(Number);
+                                        $('#roleCheckboxes input[type="checkbox"]').each(function() {
+                                            if (rids.indexOf(parseInt(this.value)) !== -1) {
+                                                this.checked = true;
+                                            }
+                                        });
+                                    }
+                                    form.render('checkbox');
                                 }
                             }, 'json');
                         } else {
@@ -245,19 +207,17 @@
                     field.id = isEdit ? data.id : '';
                     field._xsrf = xsrfToken;
                     
-                    if (!isEdit && !field.password) {
-                        layer.msg('密码不能为空', {icon: 2});
-                        return false;
-                    }
+                    var selectedRoles = [];
+                    $('#roleCheckboxes input[type="checkbox"]:checked').each(function() {
+                        selectedRoles.push(this.value);
+                    });
+                    field.role_ids = selectedRoles.join(',');
+                    
+                    if (!isEdit && !field.password) { layer.msg('密码不能为空', {icon: 2}); return false; }
                     
                     $.post(url, field, function(res) {
-                        if (res.code === 0) {
-                            layer.msg(res.msg, {icon: 1});
-                            layer.closeAll();
-                            table.reload('userTable');
-                        } else {
-                            layer.msg(res.msg, {icon: 2});
-                        }
+                        layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+                        if (res.code === 0) { layer.closeAll(); table.reload('userTable'); }
                     }, 'json');
                     return false;
                 });
