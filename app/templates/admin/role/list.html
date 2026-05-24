@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>角色管理</title>
+    <link rel="stylesheet" href="{{ static_url('layui-v2.13.6/layui/css/layui.css') }}">
+    <link rel="stylesheet" href="{{ static_url('fontawesome-free-5.15.4-web/css/all.min.css') }}">
+    <style>
+        body { padding: 15px; background: #f2f3f5; }
+        .search-bar { background: #fff; padding: 15px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .table-container { background: #fff; padding: 15px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .status-badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+        .status-normal { background: #e8f5e9; color: #4caf50; }
+        .status-disabled { background: #ffebee; color: #f44336; }
+        .system-badge { background: #fff3e0; color: #ff9800; padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="search-bar">
+        <form class="layui-form" lay-filter="searchForm">
+            <div class="layui-form-item" style="margin-bottom: 0;">
+                <div class="layui-inline">
+                    <input type="text" name="keyword" placeholder="搜索角色名称/编码" class="layui-input" style="width: 260px;">
+                </div>
+                <div class="layui-inline">
+                    <button class="layui-btn layui-btn-normal" lay-submit lay-filter="searchBtn"><i class="fas fa-search"></i> 搜索</button>
+                    <button type="reset" class="layui-btn layui-btn-primary"><i class="fas fa-redo"></i> 重置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-container">
+        <table id="roleTable" lay-filter="roleTable"></table>
+    </div>
+    
+    <div id="xsrf-token-container" style="display:none;">{% module xsrf_form_html() %}</div>
+
+    <script type="text/html" id="toolbarDemo">
+        <div class="layui-btn-container">
+            <button class="layui-btn layui-btn-sm" lay-event="add"><i class="fas fa-plus"></i> 新增角色</button>
+        </div>
+    </script>
+
+    <script src="{{ static_url('layui-v2.13.6/layui/layui.js') }}"></script>
+    <script>
+        layui.use(['table', 'form', 'layer', 'jquery'], function() {
+            var table = layui.table;
+            var form = layui.form;
+            var layer = layui.layer;
+            var $ = layui.jquery;
+            var xsrfToken = $('input[name="_xsrf"]').val();
+            function getXsrfData() { return { '_xsrf': xsrfToken }; }
+
+            table.render({
+                elem: '#roleTable',
+                url: '/admin/api/role/list',
+                toolbar: '#toolbarDemo',
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'name', title: '角色名称', width: 150},
+                    {field: 'code', title: '角色编码', width: 180},
+                    {field: 'description', title: '描述', minWidth: 200},
+                    {field: 'is_system', title: '类型', width: 100, templet: function(d) { return d.is_system ? '<span class="system-badge">系统角色</span>' : '<span style="color:#999;">自定义</span>'; }, align: 'center'},
+                    {field: 'status', title: '状态', width: 100, templet: function(d) { return d.status === 1 ? '<span class="status-badge status-normal">启用</span>' : '<span class="status-badge status-disabled">禁用</span>'; }, align: 'center'},
+                    {field: 'create_at', title: '创建时间', width: 180},
+                    {title: '操作', width: 200, templet: function(d) {
+                        var html = '<a class="layui-btn layui-btn-xs" lay-event="edit"><i class="fas fa-edit"></i> 编辑</a>';
+                        if (!d.is_system) {
+                            html += '<a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete"><i class="fas fa-trash-alt"></i> 删除</a>';
+                        } else {
+                            html += '<span style="color:#999;font-size:12px;">不可删</span>';
+                        }
+                        return html;
+                    }, align: 'center'}
+                ]],
+                page: { limit: 20, limits: [10, 20, 50], layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'] },
+                parseData: function(res) { return { "code": res.code, "msg": res.msg, "count": res.count, "data": res.data }; },
+                height: 'full-200'
+            });
+
+            form.on('submit(searchBtn)', function(data) {
+                table.reload('roleTable', { where: data.field, page: {curr: 1} });
+                return false;
+            });
+
+            table.on('toolbar(roleTable)', function(obj) {
+                if (obj.event === 'add') showRoleForm(null);
+            });
+
+            table.on('tool(roleTable)', function(obj) {
+                var data = obj.data;
+                if (obj.event === 'edit') showRoleForm(data);
+                else if (obj.event === 'delete') {
+                    layer.confirm('确定要删除角色 "' + data.name + '" 吗？', {icon: 3, title: '提示'}, function(index) {
+                        $.post('/admin/api/role/delete', $.extend({id: data.id}, getXsrfData()), function(res) {
+                            layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+                            if (res.code === 0) table.reload('roleTable');
+                        }, 'json');
+                        layer.close(index);
+                    });
+                }
+            });
+
+            function showRoleForm(data) {
+                var isEdit = data !== null;
+                var html = '<form class="layui-form" id="roleForm" lay-filter="roleForm" style="padding: 20px;">' +
+                    '<input type="hidden" name="id" value="">' +
+                    '<div class="layui-form-item"><label class="layui-form-label">角色名称</label><div class="layui-input-block">' +
+                    '<input type="text" name="name" required lay-verify="required" placeholder="请输入角色名称" class="layui-input"></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">角色编码</label><div class="layui-input-block">' +
+                    '<input type="text" name="code" required lay-verify="required" placeholder="如：editor" class="layui-input"></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">描述</label><div class="layui-input-block">' +
+                    '<textarea name="description" placeholder="请输入描述" class="layui-textarea"></textarea></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">状态</label><div class="layui-input-block">' +
+                    '<input type="radio" name="status" value="1" title="启用" checked>' +
+                    '<input type="radio" name="status" value="0" title="禁用"></div></div>' +
+                    '<div class="layui-form-item"><div class="layui-input-block">' +
+                    '<button class="layui-btn" lay-submit lay-filter="submitForm">确定</button>' +
+                    '<button type="reset" class="layui-btn layui-btn-primary">重置</button></div></div></form>';
+                
+                layer.open({
+                    type: 1, title: isEdit ? '编辑角色' : '新增角色',
+                    area: ['500px', '450px'], content: html,
+                    success: function() {
+                        form.render();
+                        if (isEdit) {
+                            $.get('/admin/api/role/edit', {id: data.id}, function(res) {
+                                if (res.code === 0) {
+                                    var fd = res.data;
+                                    form.val('roleForm', fd);
+                                    $('input[name="code"]').prop('readonly', true);
+                                }
+                            }, 'json');
+                        }
+                    }
+                });
+
+                form.on('submit(submitForm)', function(formData) {
+                    var field = formData.field;
+                    var url = isEdit ? '/admin/api/role/edit' : '/admin/api/role/add';
+                    field.id = isEdit ? data.id : '';
+                    field._xsrf = xsrfToken;
+                    $.post(url, field, function(res) {
+                        layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+                        if (res.code === 0) { layer.closeAll(); table.reload('roleTable'); }
+                    }, 'json');
+                    return false;
+                });
+            }
+        });
+    </script>
+</body>
+</html>

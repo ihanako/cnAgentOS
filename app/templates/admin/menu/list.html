@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>功能管理</title>
+    <link rel="stylesheet" href="{{ static_url('layui-v2.13.6/layui/css/layui.css') }}">
+    <link rel="stylesheet" href="{{ static_url('fontawesome-free-5.15.4-web/css/all.min.css') }}">
+    <style>
+        body { padding: 15px; background: #f2f3f5; }
+        .table-container { background: #fff; padding: 15px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .status-badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+        .status-normal { background: #e8f5e9; color: #4caf50; }
+        .status-disabled { background: #ffebee; color: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="table-container">
+        <table id="menuTable" lay-filter="menuTable"></table>
+    </div>
+    
+    <div id="xsrf-token-container" style="display:none;">{% module xsrf_form_html() %}</div>
+
+    <script type="text/html" id="toolbarDemo">
+        <div class="layui-btn-container">
+            <button class="layui-btn layui-btn-sm" lay-event="add"><i class="fas fa-plus"></i> 新增菜单</button>
+            <button class="layui-btn layui-btn-sm layui-btn-warm" lay-event="refresh"><i class="fas fa-sync-alt"></i> 刷新</button>
+        </div>
+    </script>
+
+    <script type="text/html" id="actionTpl">
+        <a class="layui-btn layui-btn-xs" lay-event="edit"><i class="fas fa-edit"></i> 编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="addChild"><i class="fas fa-plus"></i> 添加子菜单</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete"><i class="fas fa-trash-alt"></i> 删除</a>
+    </script>
+
+    <script src="{{ static_url('layui-v2.13.6/layui/layui.js') }}"></script>
+    <script>
+        layui.use(['table', 'form', 'layer', 'jquery', 'treeGrid'], function() {
+            var table = layui.table;
+            var form = layui.form;
+            var layer = layui.layer;
+            var $ = layui.jquery;
+            var xsrfToken = $('input[name="_xsrf"]').val();
+            function getXsrfData() { return { '_xsrf': xsrfToken }; }
+
+            table.render({
+                elem: '#menuTable',
+                url: '/admin/api/menu/list',
+                toolbar: '#toolbarDemo',
+                cols: [[
+                    {field: 'name', title: '菜单名称', minWidth: 200},
+                    {field: 'icon', title: '图标', width: 150, templet: function(d) { return d.icon ? '<i class="' + d.icon + '"></i> ' + d.icon : ''; }},
+                    {field: 'url', title: '路由', minWidth: 180},
+                    {field: 'code', title: '编码', width: 150},
+                    {field: 'sort', title: '排序', width: 80, sort: true, align: 'center'},
+                    {field: 'status', title: '状态', width: 100, templet: function(d) { return d.status === 1 ? '<span class="status-badge status-normal">启用</span>' : '<span class="status-badge status-disabled">禁用</span>'; }, align: 'center'},
+                    {title: '操作', width: 280, toolbar: '#actionTpl', align: 'center'}
+                ]],
+                defaultExpandLevel: 2,
+                cellMinWidth: 100,
+                height: 'full-150'
+            });
+
+            table.on('toolbar(menuTable)', function(obj) {
+                if (obj.event === 'add') showMenuForm(null);
+                else if (obj.event === 'refresh') table.reload('menuTable');
+            });
+
+            table.on('tool(menuTable)', function(obj) {
+                var data = obj.data;
+                if (obj.event === 'edit') showMenuForm(data);
+                else if (obj.event === 'addChild') showMenuForm(null, data.id);
+                else if (obj.event === 'delete') {
+                    layer.confirm('确定要删除菜单 "' + data.name + '" 吗？若有子菜单将无法删除。', {icon: 3, title: '提示'}, function(index) {
+                        $.post('/admin/api/menu/delete', $.extend({id: data.id}, getXsrfData()), function(res) {
+                            layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+                            if (res.code === 0) table.reload('menuTable');
+                        }, 'json');
+                        layer.close(index);
+                    });
+                }
+            });
+
+            function showMenuForm(data, parentId) {
+                var isEdit = data !== null;
+                var pid = isEdit ? data.parent_id : (parentId || 0);
+                $.get('/admin/api/menu/top', function(res) {
+                    var topMenus = res.data || [];
+                    var parentOptions = '<option value="0">顶级菜单</option>';
+                    topMenus.forEach(function(m) {
+                        if (!isEdit || m.id !== data.id) {
+                            parentOptions += '<option value="' + m.id + '" ' + (m.id === pid ? 'selected' : '') + '>' + m.name + '</option>';
+                        }
+                    });
+                    
+                    var html = '<form class="layui-form" id="menuForm" lay-filter="menuForm" style="padding: 20px;">' +
+                        '<input type="hidden" name="id" value="">' +
+                        '<div class="layui-form-item"><label class="layui-form-label">上级菜单</label><div class="layui-input-block">' +
+                        '<select name="parent_id">' + parentOptions + '</select></div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">菜单名称</label><div class="layui-input-block">' +
+                        '<input type="text" name="name" required lay-verify="required" placeholder="请输入菜单名称" class="layui-input"></div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">图标</label><div class="layui-input-block">' +
+                        '<input type="text" name="icon" placeholder="如：fas fa-home" class="layui-input"></div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">路由</label><div class="layui-input-block">' +
+                        '<input type="text" name="url" placeholder="如：/admin/user/list" class="layui-input"></div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">编码</label><div class="layui-input-block">' +
+                        '<input type="text" name="code" placeholder="如：user_list" class="layui-input"></div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">排序</label><div class="layui-input-block">' +
+                        '<input type="number" name="sort" value="0" class="layui-input"></div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">状态</label><div class="layui-input-block">' +
+                        '<input type="radio" name="status" value="1" title="启用" checked>' +
+                        '<input type="radio" name="status" value="0" title="禁用"></div></div>' +
+                        '<div class="layui-form-item"><div class="layui-input-block">' +
+                        '<button class="layui-btn" lay-submit lay-filter="submitForm">确定</button>' +
+                        '<button type="reset" class="layui-btn layui-btn-primary">重置</button></div></div></form>';
+                    
+                    layer.open({
+                        type: 1, title: isEdit ? '编辑菜单' : '新增菜单',
+                        area: ['500px', '520px'], content: html,
+                        success: function() {
+                            form.render();
+                            if (isEdit) {
+                                $.get('/admin/api/menu/edit', {id: data.id}, function(res) {
+                                    if (res.code === 0) {
+                                        var fd = res.data;
+                                        form.val('menuForm', fd);
+                                        $('select[name="parent_id"] option[value="' + fd.parent_id + '"]').prop('selected', true);
+                                        form.render('select');
+                                    }
+                                }, 'json');
+                            }
+                        }
+                    });
+
+                    form.on('submit(submitForm)', function(formData) {
+                        var field = formData.field;
+                        var url = isEdit ? '/admin/api/menu/edit' : '/admin/api/menu/add';
+                        field.id = isEdit ? data.id : '';
+                        field._xsrf = xsrfToken;
+                        $.post(url, field, function(res) {
+                            layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+                            if (res.code === 0) { layer.closeAll(); table.reload('menuTable'); }
+                        }, 'json');
+                        return false;
+                    });
+                }, 'json');
+            }
+        });
+    </script>
+</body>
+</html>

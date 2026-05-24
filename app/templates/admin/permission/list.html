@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>权限管理</title>
+    <link rel="stylesheet" href="{{ static_url('layui-v2.13.6/layui/css/layui.css') }}">
+    <link rel="stylesheet" href="{{ static_url('fontawesome-free-5.15.4-web/css/all.min.css') }}">
+    <style>
+        body { padding: 15px; background: #f2f3f5; }
+        .container { display: flex; gap: 15px; height: calc(100vh - 100px); }
+        .left-panel { width: 280px; background: #fff; border-radius: 6px; padding: 15px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .right-panel { flex: 1; background: #fff; border-radius: 6px; padding: 15px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .role-list { margin-top: 15px; max-height: calc(100vh - 200px); overflow-y: auto; }
+        .role-item { padding: 12px 15px; cursor: pointer; border-radius: 6px; margin-bottom: 8px; transition: all 0.2s; border: 1px solid #eee; }
+        .role-item:hover { background: #f0f7ff; border-color: #1e90ff; }
+        .role-item.active { background: #1e3c72; color: #fff; border-color: #1e3c72; }
+        .role-item .name { font-weight: 600; font-size: 14px; }
+        .role-item .desc { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+        .menu-tree { margin-top: 15px; }
+        .menu-item { padding: 8px 0; border-bottom: 1px dashed #eee; }
+        .menu-item:last-child { border-bottom: none; }
+        .menu-parent { font-weight: 600; padding-left: 0; }
+        .menu-child { padding-left: 30px; }
+        .menu-item label { cursor: pointer; display: flex; align-items: center; }
+        .menu-item input[type="checkbox"] { margin-right: 8px; }
+        .tip-box { background: #e6f7ff; border: 1px solid #91d5ff; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #0050b3; }
+        .tip-box i { margin-right: 6px; }
+    </style>
+</head>
+<body>
+    <div class="tip-box">
+        <i class="fas fa-info-circle"></i>
+        请在左侧选择角色，然后在右侧勾选该角色可访问的功能模块，最后点击保存。
+    </div>
+    
+    <div class="container">
+        <div class="left-panel">
+            <h4 style="margin: 0 0 5px; color: #333;"><i class="fas fa-user-shield"></i> 角色列表</h4>
+            <div class="role-list" id="roleList">
+                <div style="text-align: center; padding: 20px; color: #999;">加载中...</div>
+            </div>
+        </div>
+        <div class="right-panel">
+            <h4 style="margin: 0 0 5px; color: #333;"><i class="fas fa-key"></i> 功能权限 <span id="currentRoleName" style="color: #1e3c72;"></span></h4>
+            <div id="menuTreeContainer" style="margin-top: 15px;">
+                <div style="text-align: center; padding: 40px; color: #999;">请先选择一个角色</div>
+            </div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button class="layui-btn" id="saveBtn" style="display:none;"><i class="fas fa-save"></i> 保存权限</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="xsrf-token-container" style="display:none;">{% module xsrf_form_html() %}</div>
+
+    <script src="{{ static_url('layui-v2.13.6/layui/layui.js') }}"></script>
+    <script>
+        layui.use(['form', 'layer', 'jquery'], function() {
+            var form = layui.form;
+            var layer = layui.layer;
+            var $ = layui.jquery;
+            var xsrfToken = $('input[name="_xsrf"]').val();
+            var currentRoleId = null;
+            var allMenus = [];
+            var checkedIds = [];
+
+            $.get('/admin/api/role/all', function(res) {
+                if (res.code === 0 && res.data.length > 0) {
+                    var html = '';
+                    res.data.forEach(function(r) {
+                        html += '<div class="role-item" data-id="' + r.id + '" data-name="' + r.name + '">' +
+                            '<div class="name">' + (r.is_system ? '<i class="fas fa-crown" style="color:#ffd700;"></i> ' : '') + r.name + '</div>' +
+                            (r.description ? '<div class="desc">' + r.description + '</div>' : '') +
+                            '</div>';
+                    });
+                    $('#roleList').html(html);
+                } else {
+                    $('#roleList').html('<div style="text-align:center;padding:20px;color:#999;">暂无角色</div>');
+                }
+            }, 'json');
+
+            $('#roleList').on('click', '.role-item', function() {
+                $('.role-item').removeClass('active');
+                $(this).addClass('active');
+                currentRoleId = $(this).data('id');
+                $('#currentRoleName').text('- ' + $(this).data('name'));
+                loadPermissionData(currentRoleId);
+            });
+
+            function loadPermissionData(roleId) {
+                $('#menuTreeContainer').html('<div style="text-align:center;padding:40px;color:#999;">加载中...</div>');
+                $.get('/admin/api/permission/data', { role_id: roleId }, function(res) {
+                    if (res.code === 0) {
+                        allMenus = res.data.menus || [];
+                        checkedIds = res.data.checked_ids || [];
+                        renderMenuTree();
+                        $('#saveBtn').show();
+                    }
+                }, 'json');
+            }
+
+            function renderMenuTree() {
+                var html = '';
+                allMenus.forEach(function(m) {
+                    var isChecked = checkedIds.indexOf(m.id) !== -1;
+                    if (m.parent_id === 0) {
+                        html += '<div class="menu-item menu-parent">' +
+                            '<label><input type="checkbox" name="menu_' + m.id + '" value="' + m.id + '" ' + (isChecked ? 'checked' : '') + ' lay-skin="primary"> ' +
+                            (m.icon ? '<i class="' + m.icon + '"></i> ' : '') + m.name + '</label></div>';
+                        if (m.children && m.children.length > 0) {
+                            m.children.forEach(function(c) {
+                                var isChildChecked = checkedIds.indexOf(c.id) !== -1;
+                                html += '<div class="menu-item menu-child">' +
+                                    '<label><input type="checkbox" name="menu_' + c.id + '" value="' + c.id + '" ' + (isChildChecked ? 'checked' : '') + ' lay-skin="primary"> ' +
+                                    (c.icon ? '<i class="' + c.icon + '"></i> ' : '') + c.name + '</label></div>';
+                            });
+                        }
+                    }
+                });
+                $('#menuTreeContainer').html(html);
+                form.render('checkbox');
+            }
+
+            form.on('checkbox', function(data) {
+                var mid = parseInt(data.value);
+                var isChecked = data.elem.checked;
+                var menu = allMenus.find(function(m) { return m.id === mid; });
+                
+                if (menu) {
+                    if (menu.parent_id === 0) {
+                        if (isChecked) {
+                            checkedIds.push(mid);
+                            if (menu.children) {
+                                menu.children.forEach(function(c) {
+                                    if (checkedIds.indexOf(c.id) === -1) checkedIds.push(c.id);
+                                });
+                            }
+                        } else {
+                            checkedIds = checkedIds.filter(function(id) { return id !== mid; });
+                            if (menu.children) {
+                                menu.children.forEach(function(c) {
+                                    checkedIds = checkedIds.filter(function(id) { return id !== c.id; });
+                                });
+                            }
+                        }
+                    } else {
+                        if (isChecked) {
+                            if (checkedIds.indexOf(mid) === -1) checkedIds.push(mid);
+                            var parent = allMenus.find(function(p) { return p.id === menu.parent_id; });
+                            if (parent && checkedIds.indexOf(parent.id) === -1) checkedIds.push(parent.id);
+                        } else {
+                            checkedIds = checkedIds.filter(function(id) { return id !== mid; });
+                        }
+                    }
+                }
+                renderMenuTree();
+            });
+
+            $('#saveBtn').on('click', function() {
+                if (!currentRoleId) { layer.msg('请先选择角色', {icon: 2}); return; }
+                $.post('/admin/api/permission/save', $.extend({
+                    role_id: currentRoleId,
+                    menu_ids: checkedIds.join(',')
+                }, getXsrfData()), function(res) {
+                    layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+                }, 'json');
+            });
+
+            function getXsrfData() { return { '_xsrf': xsrfToken }; }
+        });
+    </script>
+</body>
+</html>

@@ -13,6 +13,9 @@ from app.controllers.home import IndexHandler
 from app.controllers.admin_auth import AdminLoginHandler,AdminLogoutHandler
 from app.controllers.admin_home import AdminIndexHandler,AdminWelcomeHandler
 from app.controllers.admin_user import AdminUserListHandler,AdminUserDataHandler,AdminUserAddHandler,AdminUserEditHandler,AdminUserDeleteHandler,AdminUserBatchDeleteHandler
+from app.controllers.admin_role import AdminRoleListHandler,AdminRoleDataHandler,AdminRoleAddHandler,AdminRoleEditHandler,AdminRoleDeleteHandler,AdminRoleAllHandler
+from app.controllers.admin_menu import AdminMenuListHandler,AdminMenuDataHandler,AdminMenuTopHandler,AdminMenuAddHandler,AdminMenuEditHandler,AdminMenuDeleteHandler
+from app.controllers.admin_permission import AdminPermissionListHandler,AdminPermissionDataHandler,AdminPermissionSaveHandler
 from app.models.db import init_db
 from app.models.user import UserRepository
 
@@ -86,7 +89,22 @@ def make_app():
             (r"/admin/api/user/add",AdminUserAddHandler),
             (r"/admin/api/user/edit",AdminUserEditHandler),
             (r"/admin/api/user/delete",AdminUserDeleteHandler),
-            (r"/admin/api/user/batch_delete",AdminUserBatchDeleteHandler)
+            (r"/admin/api/user/batch_delete",AdminUserBatchDeleteHandler),
+            (r"/admin/role/list",AdminRoleListHandler),
+            (r"/admin/api/role/list",AdminRoleDataHandler),
+            (r"/admin/api/role/add",AdminRoleAddHandler),
+            (r"/admin/api/role/edit",AdminRoleEditHandler),
+            (r"/admin/api/role/delete",AdminRoleDeleteHandler),
+            (r"/admin/api/role/all",AdminRoleAllHandler),
+            (r"/admin/menu/list",AdminMenuListHandler),
+            (r"/admin/api/menu/list",AdminMenuDataHandler),
+            (r"/admin/api/menu/top",AdminMenuTopHandler),
+            (r"/admin/api/menu/add",AdminMenuAddHandler),
+            (r"/admin/api/menu/edit",AdminMenuEditHandler),
+            (r"/admin/api/menu/delete",AdminMenuDeleteHandler),
+            (r"/admin/permission/list",AdminPermissionListHandler),
+            (r"/admin/api/permission/data",AdminPermissionDataHandler),
+            (r"/admin/api/permission/save",AdminPermissionSaveHandler)
         ],
         **settings
     )
