@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 
 from cnagentos.api import ApiError
 from cnagentos.config import Settings
@@ -73,7 +73,7 @@ async def load_context(
         raise ApiError(401, "AUTH_REQUIRED", "请先登录")
     auth_session = await session.scalar(
         select(AuthSession)
-        .options(selectinload(AuthSession.user))
+        .options(joinedload(AuthSession.user))
         .where(AuthSession.token_hash == hash_token(raw_token))
     )
     now = utc_now()
@@ -88,9 +88,13 @@ async def load_context(
     csrf_token = csrf_token_for_session(raw_token, settings.csrf_secret)
     if auth_session.csrf_secret_hash != hash_token(csrf_token):
         raise ApiError(401, "AUTH_REQUIRED", "登录状态已失效")
-    auth_session.last_seen_at = now
+
     permissions = await get_permission_codes(session, auth_session.user_id)
-    await session.commit()
+
+    last_seen = auth_session.last_seen_at
+    if last_seen is None or (now - last_seen).total_seconds() >= 300:
+        auth_session.last_seen_at = now
+        await session.commit()
     return AuthContext(auth_session.user, auth_session, permissions, csrf_token)
 
 
