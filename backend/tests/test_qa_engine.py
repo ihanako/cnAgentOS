@@ -426,6 +426,7 @@ async def test_ask_question_requires_default_model(client, admin_session):
     # 尝试提问应该失败
     ask = await client.post(
         f"/api/v1/qa/sessions/{session_id}/questions/stream",
+        headers={"X-CSRF-Token": qa_csrf},
         json={"question": "测试问题"},
     )
     assert ask.status_code == 422
@@ -455,6 +456,7 @@ async def test_streaming_qa_success(monkeypatch, client, admin_session):
     async with client.stream(
         "POST",
         f"/api/v1/qa/sessions/{session_id}/questions/stream",
+        headers={"X-CSRF-Token": qa_csrf},
         json={"question": "关于人工智能的最新发展是什么？"},
     ) as response:
         body = await response.aread()
@@ -506,6 +508,7 @@ async def test_streaming_qa_error_handling(monkeypatch, client, admin_session):
     async with client.stream(
         "POST",
         f"/api/v1/qa/sessions/{session_id}/questions/stream",
+        headers={"X-CSRF-Token": qa_csrf},
         json={"question": "测试错误处理"},
     ) as response:
         body = await response.aread()
@@ -550,6 +553,7 @@ async def test_cannot_ask_in_archived_session(client, admin_session):
     # 尝试提问应该失败
     ask = await client.post(
         f"/api/v1/qa/sessions/{session_id}/questions/stream",
+        headers={"X-CSRF-Token": qa_csrf},
         json={"question": "测试"},
     )
     assert ask.status_code == 400
@@ -618,5 +622,25 @@ async def test_session_update_requires_csrf(client, admin_session):
     no_csrf = await client.patch(
         f"/api/v1/qa/sessions/{session_id}",
         json={"title": "无 CSRF 修改"},
+    )
+    assert no_csrf.status_code == 403
+
+
+async def test_question_stream_requires_csrf(client, admin_session):
+    """流式提问需要 CSRF token"""
+    await create_active_model_for_qa(client, admin_session)
+    _, username = await create_qa_user_with_permission(client, admin_session)
+    qa_csrf = await login_qa_user(client, username, "QA-User-password-123")
+
+    created = await client.post(
+        "/api/v1/qa/sessions",
+        headers={"X-CSRF-Token": qa_csrf},
+        json={"title": "提问 CSRF 测试"},
+    )
+    session_id = created.json()["data"]["id"]
+
+    no_csrf = await client.post(
+        f"/api/v1/qa/sessions/{session_id}/questions/stream",
+        json={"question": "没有 CSRF 的提问"},
     )
     assert no_csrf.status_code == 403

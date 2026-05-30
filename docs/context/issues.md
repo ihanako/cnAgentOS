@@ -18,11 +18,12 @@
 | 前端实现方式 | Vue 3 + TypeScript + Vite + Pinia + Vue Router + Element Plus，`pnpm` 管理 | `docs/context/decisions.md` |
 | Phase 2 智能瞭望与数据仓库联调 | 数据源、采集任务和数据仓库治理页面已对接 Phase 2 B 后端接口，并通过后端 pytest、前端构建和单元测试 | `docs/context/current-status.md` |
 
-## Phase 3 C 当前风险（2026-05-29）
+## Phase 4 C 当前风险（2026-05-30）
 
 | 风险 | 当前判断 | 后续处理 |
 | --- | --- | --- |
-| 智能问数页面联调依赖 | C 侧页面已按 `/api/v1/qa/*` 契约开发，但当前分支不实现 Phase 3 B 问数后端接口 | B 完成会话、消息、流式回答和引用接口后，C 侧再做真实联调与端到端验收 |
+| MVP 端到端演示依赖本地环境 | 后端集成测试需要 PostgreSQL；前端构建和单元测试需要本机可用 `pnpm` 与 `node_modules` | Phase 4 C 验收时需启动 `docker compose up -d postgres`，并在前端环境安装依赖后执行构建与单元测试 |
+| 流式问数写操作 CSRF 收口 | 已发现并修复 `questions/stream` 缺少后端 CSRF 依赖的问题 | 保留集成测试覆盖，Phase 4 继续按 MVP 安全门槛复核所有写操作 |
 
 ## 高风险要求
 

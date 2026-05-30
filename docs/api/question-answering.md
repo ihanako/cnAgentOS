@@ -85,7 +85,7 @@
 
 ### `POST /api/v1/qa/sessions/{session_id}/questions/stream`
 
-权限：`qa.use` 且会话属于当前用户。
+权限：`qa.use` 且会话属于当前用户。该请求需要 CSRF 防护。
 
 请求：
 
